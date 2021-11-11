@@ -62,7 +62,7 @@ func _import_scene(path: String, flags: int, bake_fps: int):
 
 	var path_global : String = ProjectSettings.globalize_path(path)
 	path_global = path_global.c_escape()
-	var output_path : String = "res://.import/" + path.get_file() + "-" + path.md5_text() + ".glb"
+	var output_path : String = "res://.godot/imported/" + path.get_file().get_basename() + "-" + path.md5_text() + ".glb"
 	var output_path_global = ProjectSettings.globalize_path(output_path)
 	output_path_global = output_path_global.c_escape()
 	var stdout = [].duplicate()
