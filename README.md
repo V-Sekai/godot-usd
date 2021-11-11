@@ -6,11 +6,6 @@ This addon for Godot will automatically import any `.usdc` or `.usd` file in you
 
 Changes to the file will be automatically picked up, and your scene updated.
 
-![editor_screenshot_2021-11-09T003304-0800](https://user-images.githubusercontent.com/32321/140889714-c836535b-842e-447a-aeeb-72f819939b1f.png)
-
-
-_["Witchy #StylizedBustChallenge !" by Tyler Soo](https://skfb.ly/6WFNN) is licensed under [Creative Commons Attribution](http://creativecommons.org/licenses/by/4.0/)._
-
 ## How to Use:
 
 
