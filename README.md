@@ -6,13 +6,9 @@ This addon for Godot will automatically import any `.blend` file in your project
 
 Changes to the file will be automatically picked up, and your scene updated.
 
-![editor_screenshot_2021-11-09T003406](https://user-images.githubusercontent.com/32321/140889856-720ed3bc-2a18-4ae1-94b9-aa82f407b907.png)
-
 1. Install Blender.
 1. Go the project settings and change the Blender path.
 1. Blend!
-
-_["Witchy #StylizedBustChallenge !" by Tyler Soo](https://skfb.ly/6WFNN) is licensed under [Creative Commons Attribution](http://creativecommons.org/licenses/by/4.0/)._
 
 ## How to Use:
 
