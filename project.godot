@@ -20,7 +20,7 @@ enabled=PackedStringArray("res://addons/usd/plugin.cfg")
 [filesystem]
 
 import/fbx/use_fbx=false
-import/blend/blender_path="/home/ernestlee/Documents/blender-3.0.0-beta+v30.7689f501e2c3-linux.x86_64-release/blender"
+import/blend/blender_path="blender"
 
 [importer_defaults]
 
