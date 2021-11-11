@@ -10,12 +10,12 @@ config_version=4
 
 [application]
 
-config/name="Blender Game Project"
+config/name="Blender (USD) Game Project"
 config/icon="res://icon.png"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/blend/plugin.cfg", "res://addons/bvh/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/usd/plugin.cfg" )
 
 [filesystem]
 
