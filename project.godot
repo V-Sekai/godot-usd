@@ -6,11 +6,12 @@
 ;   [section] ; section goes between []
 ;   param=value ; assign values to parameters
 
-config_version=4
+config_version=5
 
 [application]
 
 config/name="Blender (USD) Game Project"
+config/features=PackedStringArray("4.2")
 config/icon="res://icon.png"
 
 [editor_plugins]
@@ -25,8 +26,7 @@ import/blend/blender_path="blender"
 [importer_defaults]
 
 scene={
-"_subresources": {
-},
+"_subresources": {},
 "animation/fps": 30.0,
 "animation/import": true,
 "import_script/path": "",
@@ -44,7 +44,3 @@ scene={
 [physics]
 
 common/enable_pause_aware_picking=true
-
-[rendering]
-
-environment/default_environment="res://default_env.tres"

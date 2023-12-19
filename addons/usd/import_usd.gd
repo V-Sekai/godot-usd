@@ -51,14 +51,12 @@ func _get_import_flags():
 	return EditorSceneFormatImporter.IMPORT_SCENE
 
 
-func _import_scene(path: String, flags: int, bake_fps: int):
+func _import_scene(path: String, flags: int, options: Dictionary):
 	var import_config_file = ConfigFile.new()
 	import_config_file.load(path + ".import")
 	var compression_flags: int = import_config_file.get_value("params", "meshes/compress", 0)
 	# ARRAY_COMPRESS_BASE = (ARRAY_INDEX + 1)
 	compression_flags = compression_flags << (RenderingServer.ARRAY_INDEX + 1)
-	if import_config_file.get_value("params", "meshes/octahedral_compression", false):
-		compression_flags |= RenderingServer.ARRAY_FLAG_USE_OCTAHEDRAL_COMPRESSION
 
 	var path_global : String = ProjectSettings.globalize_path(path)
 	path_global = path_global.c_escape()
@@ -69,17 +67,16 @@ func _import_scene(path: String, flags: int, bake_fps: int):
 	var addon_path : String = blender_path
 	var addon_path_global = ProjectSettings.globalize_path(addon_path)
 	var script : String = ("import bpy, os, sys;" +
-		"bpy.context.scene.render.fps=" + str(int(bake_fps)) + ";" +
+		"bpy.context.scene.render.fps=" + str(int(30)) + ";" +
 		"bpy.ops.wm.usd_import(filepath='GODOT_FILENAME', import_subdiv=True, import_usd_preview=True);" +
 		"bpy.ops.export_scene.gltf(filepath='GODOT_EXPORT_PATH',export_format='GLB',export_colors=True,export_all_influences=False,export_extras=True,export_cameras=True,export_lights=True);")
 	path_global = path_global.c_escape()
 	script = script.replace("GODOT_FILENAME", path_global)
 	output_path_global = output_path_global.c_escape()
 	script = script.replace("GODOT_EXPORT_PATH", output_path_global)
-	var dir = Directory.new()
 	var tex_dir_global = output_path_global + "_textures"
 	tex_dir_global.c_escape()
-	dir.make_dir(tex_dir_global)
+	DirAccess.make_dir_recursive_absolute(tex_dir_global)
 	script = script.replace("GODOT_TEXTURE_PATH", tex_dir_global)
 	var args = [
 		"--background",
@@ -95,6 +92,6 @@ func _import_scene(path: String, flags: int, bake_fps: int):
 
 	var gstate : GLTFState = GLTFState.new()
 	var gltf : GLTFDocument = GLTFDocument.new()
-	var root_node : Node = gltf.import_scene(output_path, flags, bake_fps, gstate)
+	var root_node : Node = gltf.import_scene(output_path, flags, gstate)
 	root_node.name = path.get_basename().get_file()
 	return root_node
