@@ -23,26 +23,6 @@
 @tool
 extends EditorSceneFormatImporter
 
-const settings_blender_path = "filesystem/import/blend/blender_path"
-
-var blender_path : String
-
-func _init():
-	if not ProjectSettings.has_setting(settings_blender_path):
-		ProjectSettings.set_initial_value(settings_blender_path, "blender")
-		ProjectSettings.set_setting(settings_blender_path, "blender")
-
-	else:
-		blender_path = ProjectSettings.get_setting(settings_blender_path)
-	var property_info = {
-		"name": settings_blender_path,
-		"type": TYPE_STRING,
-		"hint": PROPERTY_HINT_GLOBAL_FILE,
-		"hint_string": ""
-	}
-	ProjectSettings.add_property_info(property_info)
-
-
 func _get_extensions():
 	return ["usd", "usdc"]
 
@@ -64,12 +44,12 @@ func _import_scene(path: String, flags: int, options: Dictionary):
 	var output_path_global = ProjectSettings.globalize_path(output_path)
 	output_path_global = output_path_global.c_escape()
 	var stdout = [].duplicate()
-	var addon_path : String = blender_path
-	var addon_path_global = ProjectSettings.globalize_path(addon_path)
+	var addon_path_global = ProjectSettings.get_setting("filesystem/import/blender/blender3_path", "/opt/homebrew/bin/blender")
 	var script : String = ("import bpy, os, sys;" +
 		"bpy.context.scene.render.fps=" + str(int(30)) + ";" +
 		"bpy.ops.wm.usd_import(filepath='GODOT_FILENAME', import_subdiv=True, import_usd_preview=True);" +
-		"bpy.ops.export_scene.gltf(filepath='GODOT_EXPORT_PATH',export_format='GLB',export_colors=True,export_all_influences=False,export_extras=True,export_cameras=True,export_lights=True);")
+		"bpy.ops.export_scene.gltf(filepath='GODOT_EXPORT_PATH',check_existing=True,filter_glob='*.fbx',use_selection=False,use_visible=False,use_active_collection=False,use_mesh_edges=False,export_colors=True,export_all_influences=False,export_extras=True,export_cameras=True,export_lights=True);"
+		)
 	path_global = path_global.c_escape()
 	script = script.replace("GODOT_FILENAME", path_global)
 	output_path_global = output_path_global.c_escape()
@@ -92,6 +72,7 @@ func _import_scene(path: String, flags: int, options: Dictionary):
 
 	var gstate : GLTFState = GLTFState.new()
 	var gltf : GLTFDocument = GLTFDocument.new()
-	var root_node : Node = gltf.import_scene(output_path, flags, gstate)
+	gltf.append_from_file(output_path, gstate, flags, path_global.get_basename())
+	var root_node : Node = gltf.generate_scene(gstate, 30, true)
 	root_node.name = path.get_basename().get_file()
 	return root_node
