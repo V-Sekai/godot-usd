@@ -24,55 +24,197 @@
 extends EditorSceneFormatImporter
 
 func _get_extensions():
-	return ["usd", "usdc"]
+	return ["usd", "usda", "usdc", "usdz"]
 
 
 func _get_import_flags():
 	return EditorSceneFormatImporter.IMPORT_SCENE
 
 
-func _import_scene(path: String, flags: int, options: Dictionary):
-	var import_config_file = ConfigFile.new()
-	import_config_file.load(path + ".import")
-	var compression_flags: int = import_config_file.get_value("params", "meshes/compress", 0)
-	# ARRAY_COMPRESS_BASE = (ARRAY_INDEX + 1)
-	compression_flags = compression_flags << (RenderingServer.ARRAY_INDEX + 1)
+func _get_import_options(path: String):
+	# USD import options (matching C++ implementation)
+	add_import_option("usd/import_subdiv", true)
+	add_import_option("usd/import_usd_preview", true)
+	add_import_option("usd/import_set_frame_range", true)
+	add_import_option("usd/import_materials", true)
+	
+	# glTF export options (control what gets exported from USD -> glTF conversion)
+	add_import_option("usd/materials/export_materials", 1)  # 0=Placeholder, 1=Export, 2=Named Placeholder
+	add_import_option("usd/nodes/cameras", true)
+	add_import_option("usd/nodes/punctual_lights", true)
+	add_import_option("usd/meshes/skins", 1)  # 0=None, 1=Compatible, 2=All
+	add_import_option("usd/meshes/uvs", true)
+	add_import_option("usd/meshes/normals", true)
+	add_import_option("usd/meshes/colors", true)
+	
+	# Animation options (shared with glTF)
+	add_import_option("animation/import", true)
+	add_import_option("animation/fps", 30)
+	add_import_option("animation/trimming", true)
+	add_import_option("animation/remove_immutable_tracks", true)
 
-	var path_global : String = ProjectSettings.globalize_path(path)
-	path_global = path_global.c_escape()
-	var output_path : String = "res://.godot/imported/" + path.get_file().get_basename() + "-" + path.md5_text() + ".glb"
-	var output_path_global = ProjectSettings.globalize_path(output_path)
-	output_path_global = output_path_global.c_escape()
-	var stdout = [].duplicate()
-	var addon_path_global = ProjectSettings.get_setting("filesystem/import/blender/blender3_path", "/opt/homebrew/bin/blender")
-	var script : String = ("import bpy, os, sys;" +
-		"bpy.context.scene.render.fps=" + str(int(30)) + ";" +
-		"bpy.ops.wm.usd_import(filepath='GODOT_FILENAME', import_subdiv=True, import_usd_preview=True);" +
-		"bpy.ops.export_scene.gltf(filepath='GODOT_EXPORT_PATH',check_existing=True,filter_glob='*.fbx',use_selection=False,use_visible=False,use_active_collection=False,use_mesh_edges=False,export_colors=True,export_all_influences=False,export_extras=True,export_cameras=True,export_lights=True);"
-		)
-	path_global = path_global.c_escape()
-	script = script.replace("GODOT_FILENAME", path_global)
-	output_path_global = output_path_global.c_escape()
-	script = script.replace("GODOT_EXPORT_PATH", output_path_global)
-	var tex_dir_global = output_path_global + "_textures"
-	tex_dir_global.c_escape()
-	DirAccess.make_dir_recursive_absolute(tex_dir_global)
-	script = script.replace("GODOT_TEXTURE_PATH", tex_dir_global)
-	var args = [
-		"--background",
-		"--python-expr",
-		script]
-	print(args)
-	var ret = OS.execute(addon_path_global, args, stdout, true)
-	for line in stdout:
-		print(line)
-	if ret != 0:
-		print("Blender returned " + str(ret))
+
+func _import_scene(path: String, flags: int, options: Dictionary):
+	# Get Blender path from editor settings (matching C++ implementation)
+	var blender_path = EditorInterface.get_editor_settings().get_setting("filesystem/import/blender/blender_path")
+	
+	if blender_path.is_empty():
+		push_error("Blender path is empty, check your Editor Settings.")
+		return null
+	
+	if not FileAccess.file_exists(blender_path):
+		push_error("Invalid Blender path: %s, check your Editor Settings." % blender_path)
 		return null
 
-	var gstate : GLTFState = GLTFState.new()
-	var gltf : GLTFDocument = GLTFDocument.new()
-	gltf.append_from_file(output_path, gstate, flags, path_global.get_basename())
-	var root_node : Node = gltf.generate_scene(gstate, 30, true)
-	root_node.name = path.get_basename().get_file()
+	# Get global paths for source and sink (matching C++ implementation)
+	var source_global = ProjectSettings.globalize_path(path)
+	# Fix Windows network share paths
+	if OS.get_name() == "Windows" and source_global.begins_with("//"):
+		source_global = source_global.replace("//", "/")
+	
+	var usd_basename = path.get_file().get_basename()
+	# Use standard imported files path (res://.godot/imported/)
+	var sink = "res://.godot/imported/%s-%s.gltf" % [usd_basename, path.md5_text()]
+	var sink_global = ProjectSettings.globalize_path(sink)
+	
+	# Build USD import options
+	var usd_import_options = {}
+	usd_import_options["filepath"] = source_global
+	if options.has("usd/import_subdiv"):
+		usd_import_options["import_subdiv"] = bool(options["usd/import_subdiv"])
+	if options.has("usd/import_usd_preview"):
+		usd_import_options["import_usd_preview"] = bool(options["usd/import_usd_preview"])
+	if options.has("usd/import_set_frame_range"):
+		usd_import_options["set_frame_range"] = bool(options["usd/import_set_frame_range"])
+	if options.has("usd/import_materials"):
+		usd_import_options["import_materials"] = bool(options["usd/import_materials"])
+	
+	# Build glTF export options (matching C++ implementation)
+	var gltf_export_options = {}
+	gltf_export_options["filepath"] = sink_global
+	gltf_export_options["export_format"] = "GLTF_SEPARATE"
+	gltf_export_options["export_yup"] = true
+	gltf_export_options["export_import_convert_lighting_mode"] = "COMPAT"
+	
+	# Material export mode
+	if options.has("usd/materials/export_materials"):
+		var export_mode = int(options["usd/materials/export_materials"])
+		match export_mode:
+			0:  # Placeholder
+				gltf_export_options["export_materials"] = "PLACEHOLDER"
+			1:  # Export
+				gltf_export_options["export_materials"] = "EXPORT"
+			2:  # Named Placeholder
+				gltf_export_options["export_materials"] = "EXPORT"
+				gltf_export_options["export_image_format"] = "NONE"
+	else:
+		gltf_export_options["export_materials"] = "PLACEHOLDER"
+	
+	# Node export options
+	gltf_export_options["export_cameras"] = options.get("usd/nodes/cameras", true)
+	gltf_export_options["export_lights"] = options.get("usd/nodes/punctual_lights", true)
+	
+	# Mesh export options
+	if options.has("usd/meshes/skins"):
+		var skins = int(options["usd/meshes/skins"])
+		if skins == 0:  # None
+			gltf_export_options["export_skins"] = false
+		elif skins == 1:  # Compatible
+			gltf_export_options["export_skins"] = true
+			gltf_export_options["export_all_influences"] = false
+		elif skins == 2:  # All
+			gltf_export_options["export_skins"] = true
+			gltf_export_options["export_all_influences"] = true
+	else:
+		gltf_export_options["export_skins"] = false
+	
+	gltf_export_options["export_texcoords"] = options.get("usd/meshes/uvs", true)
+	gltf_export_options["export_normals"] = options.get("usd/meshes/normals", true)
+	
+	# Blender 4.2+ uses export_vertex_color instead of export_colors
+	# For Blender 4.5.4, we must use export_vertex_color
+	# Try to detect Blender version by checking the output
+	var use_vertex_color = true  # Default to newer API for Blender 4.2+
+	if options.get("usd/meshes/colors", true):
+		gltf_export_options["export_vertex_color"] = "MATERIAL"
+	else:
+		gltf_export_options["export_vertex_color"] = "NONE"
+	
+	# Escape paths for Python (before building script)
+	var source_escaped = source_global.replace("\\", "\\\\").replace("'", "\\'")
+	var sink_escaped = sink_global.replace("\\", "\\\\").replace("'", "\\'")
+	
+	# Update options with escaped paths
+	usd_import_options["filepath"] = source_escaped
+	gltf_export_options["filepath"] = sink_escaped
+	
+	# Build Python script to execute in Blender
+	var script_parts = []
+	script_parts.append("import bpy, os, sys")
+	script_parts.append("bpy.context.scene.render.fps = %d" % int(options.get("animation/fps", 30)))
+	
+	# USD import
+	var usd_import_args = []
+	for key in usd_import_options:
+		var value = usd_import_options[key]
+		if value is bool:
+			usd_import_args.append("%s=%s" % [key, "True" if value else "False"])
+		elif value is String:
+			usd_import_args.append("%s='%s'" % [key, str(value).replace("'", "\\'")])
+		else:
+			usd_import_args.append("%s=%s" % [key, str(value)])
+	
+	script_parts.append("bpy.ops.wm.usd_import(%s)" % ", ".join(usd_import_args))
+	
+	# glTF export
+	var gltf_export_args = []
+	for key in gltf_export_options:
+		var value = gltf_export_options[key]
+		if value is bool:
+			gltf_export_args.append("%s=%s" % [key, "True" if value else "False"])
+		elif value is String:
+			gltf_export_args.append("%s='%s'" % [key, str(value).replace("'", "\\'")])
+		else:
+			gltf_export_args.append("%s=%s" % [key, str(value)])
+	
+	script_parts.append("bpy.ops.export_scene.gltf(%s)" % ", ".join(gltf_export_args))
+	
+	var script = "; ".join(script_parts)
+	
+	# Execute Blender
+	var stdout = []
+	var args = ["--background", "--python-expr", script]
+	var ret = OS.execute(blender_path, args, stdout, true)
+	
+	for line in stdout:
+		print(line)
+	
+	if ret != 0:
+		push_error("Blender returned error code: %d" % ret)
+		return null
+	
+	# Load the generated glTF file (matching C++ implementation)
+	var gltf = GLTFDocument.new()
+	var gstate = GLTFState.new()
+	gstate.scene_name = usd_basename
+	# extract_path and extract_prefix are set automatically by append_from_file
+	# based on the base_path parameter
+	# base_path should be the directory containing the .gltf file so it can find the .bin file
+	var sink_base_dir = sink.get_base_dir()
+	
+	var err = gltf.append_from_file(sink, gstate, flags, sink_base_dir)
+	if err != OK:
+		push_error("Failed to load generated GLTF file: %d" % err)
+		return null
+	
+	if options.has("animation/import"):
+		gstate.create_animations = bool(options["animation/import"])
+	
+	var fps = float(options.get("animation/fps", 30))
+	var trimming = bool(options.get("animation/trimming", true))
+	var root_node = gltf.generate_scene(gstate, fps, trimming, false)
+	
+	if root_node:
+		root_node.name = usd_basename
+	
 	return root_node
