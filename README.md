@@ -8,7 +8,7 @@ Changes to the file will be automatically picked up, and your scene updated.
 
 1. Install Blender.
 1. Go the project settings and change the Blender path.
-1. import usd.   
+1. Import usd.   
 
 ## How to Use:
 
