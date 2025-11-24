@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Blender (USD) Game Project"
-config/features=PackedStringArray("4.6", "Double Precision")
+config/features=PackedStringArray("4.6")
 config/icon="res://icon.png"
 
 [editor_plugins]
